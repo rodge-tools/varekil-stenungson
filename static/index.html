@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b5fff">
+  <meta name="description" content="Avgångar mellan Varekil och Stenungsön med Västtrafik.">
+  <title>Varekil ↔ Stenungsön</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">VÄSTTRAFIK</p>
+        <h1 id="routeTitle">Varekil → Stenungsön</h1>
+      </div>
+      <button id="refreshBtn" class="icon-btn" aria-label="Uppdatera">↻</button>
+    </header>
+
+    <section class="direction-card">
+      <div class="place-row">
+        <div class="dot start"></div>
+        <div>
+          <span class="label">Från</span>
+          <strong id="originName">Varekil</strong>
+        </div>
+      </div>
+      <div class="connector"></div>
+      <div class="place-row">
+        <div class="dot end"></div>
+        <div>
+          <span class="label">Till</span>
+          <strong id="destinationName">Stenungsön</strong>
+        </div>
+      </div>
+      <button id="swapBtn" class="swap-btn">⇅ Byt riktning</button>
+    </section>
+
+    <section class="controls">
+      <label>
+        <span>Datum</span>
+        <input id="dateInput" type="date">
+      </label>
+      <label>
+        <span>Tid</span>
+        <input id="timeInput" type="time" step="60">
+      </label>
+      <button id="searchBtn" class="primary-btn">Visa avgångar</button>
+    </section>
+
+    <section class="status-row">
+      <span id="statusText">Hämtar avgångar…</span>
+      <span id="updatedText"></span>
+    </section>
+
+    <section id="journeys" class="journeys" aria-live="polite"></section>
+
+    <button id="moreBtn" class="more-btn" hidden>Visa fler avgångar</button>
+
+    <p class="footer-note">Realtidsdata från Västtrafik när den finns tillgänglig.</p>
+  </main>
+
+  <template id="journeyTemplate">
+    <article class="journey-card">
+      <div class="journey-main">
+        <div class="time-block">
+          <span class="dep-time"></span>
+          <span class="arrow">→</span>
+          <span class="arr-time"></span>
+        </div>
+        <div class="line-list"></div>
+      </div>
+      <div class="journey-meta">
+        <span class="duration"></span>
+        <span class="changes"></span>
+      </div>
+      <details>
+        <summary>Visa resan</summary>
+        <div class="legs"></div>
+      </details>
+    </article>
+  </template>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

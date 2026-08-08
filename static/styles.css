@@ -1,0 +1,58 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #14213d;
+  background: #eef3f8;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: #eef3f8; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.app-shell { max-width: 620px; min-height: 100vh; margin: 0 auto; padding: 22px 16px 40px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.eyebrow { margin: 0 0 3px; font-size: 12px; font-weight: 800; letter-spacing: .12em; color: #0b5fff; }
+h1 { margin: 0; font-size: clamp(24px, 7vw, 34px); line-height: 1.05; letter-spacing: -.03em; }
+.icon-btn { width: 48px; height: 48px; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px rgba(24,49,83,.08); font-size: 27px; color: #0b5fff; }
+.direction-card, .controls, .journey-card { background: #fff; border-radius: 22px; box-shadow: 0 10px 34px rgba(24,49,83,.08); }
+.direction-card { position: relative; padding: 20px; margin-bottom: 14px; }
+.place-row { display: flex; align-items: center; gap: 13px; min-height: 48px; }
+.place-row strong { display: block; font-size: 18px; }
+.label { display: block; font-size: 12px; color: #6b778c; margin-bottom: 2px; }
+.dot { width: 13px; height: 13px; border-radius: 50%; flex: 0 0 auto; }
+.dot.start { border: 4px solid #0b5fff; background: #fff; }
+.dot.end { background: #0b5fff; }
+.connector { width: 2px; height: 21px; margin-left: 5px; background: #cbd7e6; }
+.swap-btn { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); border: 0; border-radius: 999px; background: #edf4ff; color: #0b5fff; font-weight: 800; padding: 10px 12px; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; margin-bottom: 12px; }
+.controls label span { display: block; font-size: 12px; color: #6b778c; margin: 0 0 5px 3px; }
+.controls input { width: 100%; border: 1px solid #d8e1ec; border-radius: 13px; padding: 11px; background: #f8fafc; color: #14213d; }
+.primary-btn { grid-column: 1 / -1; border: 0; border-radius: 14px; padding: 13px 16px; background: #0b5fff; color: #fff; font-weight: 800; }
+.status-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 4px 10px; font-size: 13px; color: #67748a; }
+.journeys { display: grid; gap: 11px; }
+.journey-card { padding: 17px; }
+.journey-main { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.time-block { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.dep-time { font-size: 27px; font-weight: 850; letter-spacing: -.03em; }
+.arrow { color: #98a4b7; }
+.arr-time { font-size: 18px; font-weight: 700; color: #526078; }
+.line-list { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.line-badge { min-width: 36px; padding: 6px 9px; border-radius: 10px; background: #0b5fff; color: #fff; text-align: center; font-weight: 850; }
+.journey-meta { display: flex; gap: 14px; margin-top: 10px; color: #617087; font-size: 14px; }
+details { border-top: 1px solid #edf1f5; margin-top: 12px; padding-top: 10px; }
+summary { color: #0b5fff; font-weight: 750; cursor: pointer; }
+.legs { display: grid; gap: 10px; margin-top: 12px; }
+.leg { display: grid; grid-template-columns: 52px 1fr; gap: 10px; font-size: 14px; }
+.leg-time { font-weight: 800; font-variant-numeric: tabular-nums; }
+.leg-body { border-left: 2px solid #d9e3ef; padding-left: 12px; }
+.leg-body strong { display: block; margin-bottom: 2px; }
+.leg-body small { display: block; color: #69768a; }
+.more-btn { width: 100%; margin-top: 12px; border: 1px solid #cdd9e8; border-radius: 15px; padding: 13px 16px; background: #fff; color: #0b5fff; font-weight: 800; }
+.footer-note { text-align: center; color: #7a8799; font-size: 12px; margin-top: 18px; }
+.error-card { background: #fff1f1; color: #8b1d1d; border: 1px solid #ffd0d0; border-radius: 16px; padding: 14px; }
+.empty-card { background: #fff; border-radius: 16px; padding: 18px; color: #617087; text-align: center; }
+.skeleton { height: 108px; border-radius: 22px; background: linear-gradient(100deg, #fff 35%, #f2f6fa 50%, #fff 65%); background-size: 250% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position-x: -250%; } }
+@media (max-width: 430px) {
+  .swap-btn { position: static; transform: none; width: 100%; margin-top: 13px; }
+  .controls { grid-template-columns: 1fr 1fr; }
+}

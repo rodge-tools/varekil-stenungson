@@ -1,0 +1,10 @@
+# Hemliga lokala inställningar – får inte laddas upp till GitHub
+config.json
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
