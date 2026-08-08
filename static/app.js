@@ -2,6 +2,7 @@ const state = {
   direction: 'a-b',
   route: null,
   lastArrival: null,
+  lastRenderedDay: null,
   loading: false,
 };
 
@@ -39,6 +40,39 @@ function fmtTime(iso) {
   if (!iso) return '–';
   const d = new Date(iso);
   return d.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function localDayKey(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function fmtDay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const text = d.toLocaleDateString('sv-SE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function appendDaySeparatorIfNeeded(journey) {
+  const key = localDayKey(journey.departure);
+  if (!key || key === state.lastRenderedDay) return;
+
+  // Visa inte en extra rubrik före den allra första dagens första resa.
+  // Däremot visas rubriken direkt när listan passerar midnatt.
+  if (state.lastRenderedDay !== null) {
+    const divider = document.createElement('div');
+    divider.className = 'day-separator';
+    divider.innerHTML = `<span>${escapeHtml(fmtDay(journey.departure))}</span>`;
+    el.journeys.appendChild(divider);
+  }
+
+  state.lastRenderedDay = key;
 }
 
 function durationMinutes(start, end) {
@@ -120,11 +154,17 @@ async function loadJourneys({ append = false, resetToNow = false } = {}) {
     setRouteLabels(data.origin, data.destination);
     state.route = data;
 
-    if (!append) el.journeys.innerHTML = '';
+    if (!append) {
+      el.journeys.innerHTML = '';
+      state.lastRenderedDay = null;
+    }
     if (!data.results.length && !append) {
       el.journeys.innerHTML = '<div class="empty-card">Inga resor hittades för vald tid.</div>';
     } else {
-      data.results.forEach(j => el.journeys.appendChild(renderJourney(j)));
+      data.results.forEach(j => {
+        appendDaySeparatorIfNeeded(j);
+        el.journeys.appendChild(renderJourney(j));
+      });
     }
 
     const last = data.results[data.results.length - 1];

@@ -56,3 +56,24 @@ summary { color: #0b5fff; font-weight: 750; cursor: pointer; }
   .swap-btn { position: static; transform: none; width: 100%; margin-top: 13px; }
   .controls { grid-template-columns: 1fr 1fr; }
 }
+
+
+.day-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 9px 2px 2px;
+  color: #526078;
+  font-size: 14px;
+  font-weight: 800;
+}
+.day-separator::before,
+.day-separator::after {
+  content: "";
+  height: 1px;
+  background: #cbd7e6;
+  flex: 1;
+}
+.day-separator span {
+  white-space: nowrap;
+}
