@@ -16,6 +16,8 @@ VT_TOKEN_URL = "https://ext-api.vasttrafik.se/token"
 VT_API_BASE = "https://ext-api.vasttrafik.se/pr/v4"
 
 app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
+# Acceptera URL-varianter med/utan avslutande snedstreck.
+app.url_map.strict_slashes = False
 session = requests.Session()
 _token = {"value": None, "expires_at": 0.0}
 _stop_cache = {}
@@ -29,7 +31,7 @@ def load_config():
     return {
         "client_id": os.getenv("VASTTRAFIK_CLIENT_ID", cfg.get("vasttrafik_client_id", "")),
         "client_secret": os.getenv("VASTTRAFIK_CLIENT_SECRET", cfg.get("vasttrafik_client_secret", "")),
-        "stop_a": os.getenv("STOP_A", cfg.get("stop_a", "Varekil busstation")),
+        "stop_a": os.getenv("STOP_A", cfg.get("stop_a", "Varekils busstation")),
         "stop_b": os.getenv("STOP_B", cfg.get("stop_b", "Stenungsön")),
     }
 
@@ -224,6 +226,15 @@ def health():
         "stopA": cfg["stop_a"],
         "stopB": cfg["stop_b"],
     })
+
+
+# PWA-fallback: en uppdatering på en icke-API-sökväg ska öppna appen,
+# inte ge en vanlig Flask-404.
+@app.get("/<path:path>")
+def pwa_fallback(path):
+    if path.startswith("api/"):
+        return jsonify({"error": "Not Found"}), 404
+    return send_from_directory(STATIC_DIR, "index.html")
 
 
 if __name__ == "__main__":
