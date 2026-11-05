@@ -1,4 +1,4 @@
-const CACHE = 'varekil-stenungson-v4';
+const CACHE = 'varekil-stenungson-v5';
 const ASSETS = ['/', '/static/styles.css', '/static/app.js', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {

@@ -1,9 +1,11 @@
+import hashlib
 import json
 import os
 import time
 import unicodedata
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlsplit
 
 import requests
 from flask import Flask, jsonify, request, send_from_directory
@@ -121,6 +123,66 @@ def choose_time(obj):
     return obj.get("estimatedTime") or obj.get("plannedTime") or ""
 
 
+class UpstreamResponseError(RuntimeError):
+    pass
+
+
+def next_pagination_reference(data):
+    links = data.get("links")
+    if links is None:
+        return None
+    if not isinstance(links, dict):
+        raise UpstreamResponseError("Ogiltig pagineringslänk från Västtrafik.")
+    next_url = links.get("next")
+    if next_url is None or next_url == "":
+        return None
+    if not isinstance(next_url, str):
+        raise UpstreamResponseError("Ogiltig pagineringslänk från Västtrafik.")
+    try:
+        values = parse_qs(urlsplit(next_url).query, keep_blank_values=True).get(
+            "paginationReference", []
+        )
+    except ValueError as exc:
+        raise UpstreamResponseError("Ogiltig pagineringslänk från Västtrafik.") from exc
+    if len(values) != 1 or not values[0]:
+        raise UpstreamResponseError("Ogiltig pagineringsreferens från Västtrafik.")
+    return values[0]
+
+
+def journey_key(journey):
+    """Identify the planned itinerary, independently of realtime estimates.
+
+    Incomplete identities remain unmerged. Keep complete access/connection link
+    data in the signature so different walking alternatives are not collapsed.
+    """
+    legs = journey.get("tripLegs") or []
+    if not legs:
+        return None
+    identity = []
+    for leg in legs:
+        service_gid = (leg.get("serviceJourney") or {}).get("gid")
+        if not service_gid:
+            return None
+        calls = []
+        for name in ("origin", "destination"):
+            call = leg.get(name) or {}
+            stop_gid = (call.get("stopPoint") or {}).get("gid")
+            try:
+                planned = datetime.fromisoformat(call.get("plannedTime", "").replace("Z", "+00:00"))
+            except (ValueError, TypeError, AttributeError):
+                return None
+            if not stop_gid or planned.utcoffset() is None:
+                return None
+            calls.append([stop_gid, planned.astimezone(timezone.utc).isoformat()])
+        identity.append([service_gid, calls])
+    links = {name: journey.get(name) for name in (
+        "connectionLinks", "departureAccessLink", "arrivalAccessLink", "destinationLink"
+    )}
+    links["connectionLinks"] = links["connectionLinks"] or []
+    payload = json.dumps([identity, links], sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def shape_journey(journey):
     legs = journey.get("tripLegs", [])
     shaped_legs = []
@@ -144,6 +206,7 @@ def shape_journey(journey):
 
     transport_legs = [x for x in shaped_legs if x["isTransport"]]
     return {
+        "key": journey_key(journey),
         "departure": shaped_legs[0]["departure"] if shaped_legs else "",
         "arrival": shaped_legs[-1]["arrival"] if shaped_legs else "",
         "changes": max(0, len(transport_legs) - 1),
@@ -184,7 +247,15 @@ def journeys():
         cfg = load_config()
         direction = request.args.get("direction", "a-b")
         date_time = request.args.get("dateTime", "").strip()
-        limit = min(max(int(request.args.get("limit", 10)), 1), 20)
+        if direction not in ("a-b", "b-a"):
+            return jsonify({"error": "Ogiltig riktning."}), 400
+        try:
+            limit = min(max(int(request.args.get("limit", 10)), 1), 20)
+        except ValueError:
+            return jsonify({"error": "Ogiltigt antal reseförslag."}), 400
+        pagination_reference = request.args.get("paginationReference")
+        if pagination_reference is not None and (not pagination_reference or not date_time):
+            return jsonify({"error": "Paginering kräver referens och ursprunglig söktid."}), 400
 
         a = resolve_stop(cfg["stop_a"])
         b = resolve_stop(cfg["stop_b"])
@@ -197,15 +268,21 @@ def journeys():
         }
         if date_time:
             params["dateTime"] = date_time
+        if pagination_reference is not None:
+            params["paginationReference"] = pagination_reference
 
         data = vt_get("/journeys", params)
+        next_reference = next_pagination_reference(data)
         results = [shape_journey(j) for j in data.get("results", [])]
         return jsonify({
             "origin": origin,
             "destination": destination,
             "results": results,
+            "nextPaginationReference": next_reference,
             "generatedAt": datetime.now().astimezone().isoformat(),
         })
+    except UpstreamResponseError as exc:
+        return jsonify({"error": str(exc)}), 502
     except requests.HTTPError as exc:
         body = ""
         try:

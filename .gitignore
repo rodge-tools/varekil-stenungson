@@ -8,3 +8,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Frontend tests
+node_modules/
+test-results/
+playwright-report/

@@ -1,7 +1,11 @@
 const state = {
   direction: 'a-b',
   route: null,
-  lastArrival: null,
+  searchParams: null,
+  nextPaginationReference: null,
+  usedPaginationReferences: new Set(),
+  journeys: [],
+  nextLocalId: 0,
   lastRenderedDay: null,
   loading: false,
 };
@@ -130,70 +134,141 @@ function escapeHtml(value) {
   return String(value || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
 
+function mergeJourneys(current, incoming) {
+  const byKey = new Map(current.map(j => [j.viewKey, j]));
+  incoming.forEach(j => {
+    // Without a reliable identity, preserve both alternatives.
+    const viewKey = j.key ? `journey:${j.key}` : `unknown:${state.nextLocalId++}`;
+    byKey.set(viewKey, { ...j, viewKey });
+  });
+  const timestamp = value => Number.isFinite(Date.parse(value)) ? Date.parse(value) : Infinity;
+  return [...byKey.values()].sort((a, b) =>
+    (timestamp(a.departure) - timestamp(b.departure)) ||
+    (timestamp(a.arrival) - timestamp(b.arrival)) ||
+    (a.viewKey < b.viewKey ? -1 : a.viewKey > b.viewKey ? 1 : 0)
+  );
+}
+
+function renderJourneys({ preservePosition = false } = {}) {
+  const cards = [...el.journeys.querySelectorAll('[data-journey-key]')];
+  const openKeys = new Set(cards.filter(card => card.querySelector('details').open)
+    .map(card => card.dataset.journeyKey));
+  const focusedKey = document.activeElement?.closest('[data-journey-key]')?.dataset.journeyKey;
+  const anchor = preservePosition && cards.find(card => {
+    const rect = card.getBoundingClientRect();
+    return rect.bottom > 0 && rect.top < window.innerHeight;
+  });
+  const anchorTop = anchor ? anchor.getBoundingClientRect().top : 0;
+  let newAnchor = null;
+
+  el.journeys.innerHTML = '';
+  state.lastRenderedDay = null;
+  state.journeys.forEach(j => {
+    appendDaySeparatorIfNeeded(j);
+    const node = renderJourney(j);
+    const card = node.querySelector('.journey-card');
+    card.dataset.journeyKey = j.viewKey;
+    card.querySelector('details').open = openKeys.has(j.viewKey);
+    el.journeys.appendChild(node);
+    if (j.viewKey === focusedKey) card.querySelector('summary').focus({ preventScroll: true });
+    if (anchor && j.viewKey === anchor.dataset.journeyKey) newAnchor = card;
+  });
+  if (!state.journeys.length) {
+    el.journeys.innerHTML = '<div class="empty-card">Inga resor hittades för vald tid.</div>';
+  }
+  if (newAnchor) window.scrollBy(0, newAnchor.getBoundingClientRect().top - anchorTop);
+}
+
+function setLoading(loading) {
+  state.loading = loading;
+  [el.moreBtn, el.searchBtn, el.swapBtn, el.refreshBtn, el.dateInput, el.timeInput]
+    .forEach(control => { control.disabled = loading; });
+}
+
 async function loadJourneys({ append = false, resetToNow = false } = {}) {
-  if (state.loading) return;
-  state.loading = true;
-  el.moreBtn.disabled = true;
-  el.searchBtn.disabled = true;
+  if (state.loading || (append && !state.nextPaginationReference)) return;
+  setLoading(true);
 
   if (resetToNow) setNowInputs();
   if (!append) {
+    state.searchParams = null;
+    state.nextPaginationReference = null;
+    state.usedPaginationReferences.clear();
+    state.journeys = [];
+    state.nextLocalId = 0;
     showSkeletons();
     el.statusText.textContent = 'Hämtar avgångar…';
     el.moreBtn.hidden = true;
   }
 
   try {
-    let dateTime = append && state.lastArrival ? new Date(new Date(state.lastArrival).getTime() + 60000).toISOString() : isoFromInputs();
-    const params = new URLSearchParams({ direction: state.direction, limit: '10' });
-    if (dateTime) params.set('dateTime', dateTime);
+    if (!append) {
+      state.searchParams = new URLSearchParams({
+        direction: state.direction,
+        limit: '10',
+        dateTime: isoFromInputs() || new Date().toISOString(),
+      });
+    }
+    const params = new URLSearchParams(state.searchParams);
+    const requestedReference = append ? state.nextPaginationReference : null;
+    if (requestedReference) params.set('paginationReference', requestedReference);
     const res = await fetch(`/api/journeys?${params}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Kunde inte hämta avgångar.');
+    if (!Array.isArray(data.results)) throw new Error('Ogiltigt svar från Västtrafik.');
+
+    const paginationSupported = Object.hasOwn(data, 'nextPaginationReference');
+    const nextReference = data.nextPaginationReference ?? null;
+    if (nextReference !== null && (typeof nextReference !== 'string' || !nextReference)) {
+      throw new Error('Ogiltig pagineringsreferens från Västtrafik.');
+    }
 
     setRouteLabels(data.origin, data.destination);
     state.route = data;
+    const previousCount = state.journeys.length;
+    state.journeys = mergeJourneys(state.journeys, data.results);
+    renderJourneys({ preservePosition: append });
 
-    if (!append) {
-      el.journeys.innerHTML = '';
-      state.lastRenderedDay = null;
+    if (requestedReference) state.usedPaginationReferences.add(requestedReference);
+    const repeatedReference = nextReference !== null && state.usedPaginationReferences.has(nextReference);
+    state.nextPaginationReference = repeatedReference ? null : nextReference;
+    el.moreBtn.hidden = !state.nextPaginationReference;
+    el.moreBtn.textContent = 'Visa fler avgångar';
+    const added = state.journeys.length - previousCount;
+    el.statusText.textContent = append
+      ? `${added} nya reseförslag, ${state.journeys.length} totalt`
+      : `${state.journeys.length} reseförslag`;
+    if (repeatedReference) {
+      el.statusText.textContent = 'Bläddringen upprepades. Uppdatera för att söka igen.';
+    } else if (!paginationSupported) {
+      el.statusText.textContent = 'Servern behöver uppdateras för att visa fler avgångar.';
+    } else if (!nextReference && state.journeys.length) {
+      el.statusText.textContent += ' · Inga fler reseförslag';
+    } else if (append && !added && nextReference) {
+      el.statusText.textContent += ' · Det går att bläddra vidare';
     }
-    if (!data.results.length && !append) {
-      el.journeys.innerHTML = '<div class="empty-card">Inga resor hittades för vald tid.</div>';
-    } else {
-      data.results.forEach(j => {
-        appendDaySeparatorIfNeeded(j);
-        el.journeys.appendChild(renderJourney(j));
-      });
-    }
-
-    const last = data.results[data.results.length - 1];
-    if (last?.arrival) state.lastArrival = last.arrival;
-    el.moreBtn.hidden = data.results.length === 0;
-    el.statusText.textContent = `${data.results.length} reseförslag${append ? ' tillagda' : ''}`;
     el.updatedText.textContent = `Uppdaterad ${new Date().toLocaleTimeString('sv-SE', {hour:'2-digit', minute:'2-digit'})}`;
   } catch (err) {
     if (!append) el.journeys.innerHTML = `<div class="error-card"><strong>Kunde inte hämta tider.</strong><br>${escapeHtml(err.message)}</div>`;
-    el.statusText.textContent = 'Fel vid hämtning';
-    el.moreBtn.hidden = true;
+    el.statusText.textContent = append ? `Kunde inte hämta fler resor: ${err.message}` : 'Fel vid hämtning';
+    el.moreBtn.hidden = !append || !state.nextPaginationReference;
+    if (append) el.moreBtn.textContent = 'Försök igen';
   } finally {
-    state.loading = false;
-    el.moreBtn.disabled = false;
-    el.searchBtn.disabled = false;
+    setLoading(false);
   }
 }
 
 el.swapBtn.addEventListener('click', () => {
+  if (state.loading) return;
   state.direction = state.direction === 'a-b' ? 'b-a' : 'a-b';
-  state.lastArrival = null;
   loadJourneys();
 });
 el.refreshBtn.addEventListener('click', () => {
-  state.lastArrival = null;
+  if (state.loading) return;
   loadJourneys({ resetToNow: true });
 });
 el.searchBtn.addEventListener('click', () => {
-  state.lastArrival = null;
+  if (state.loading) return;
   loadJourneys();
 });
 el.moreBtn.addEventListener('click', () => loadJourneys({ append: true }));
