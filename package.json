@@ -1,0 +1,15 @@
+{
+  "name": "varekil-stenungson-tests",
+  "private": true,
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/frontend.test.cjs",
+    "test:browser": "node --test tests/browser.test.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "31.0.0",
+    "playwright": "1.62.1"
+  }
+}
