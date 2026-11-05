@@ -123,3 +123,24 @@ webbläsarens nätverkspanel att `dateTime` är oförändrad och att nästa
 `paginationReference` kommer från föregående svar. De automatiska testerna
 använder inga API-nycklar och verifierar inte Västtrafiks aktuella trafikutbud
 eller hur länge en pagineringsreferens är giltig.
+
+## Håll Render vaken
+
+GitHub Actions-workflowen `.github/workflows/keepalive.yml` anropar
+`https://varekil-stenungson.onrender.com/api/health` var tionde minut
+(minut 7, 17, 27, 37, 47 och 57 varje timme). Den gör inga resesökningar och
+behöver varken Västtrafik-nycklar eller skrivbehörighet till repot.
+
+Workflowen körs även när dess fil ändras på `main` och kan startas manuellt via
+**Actions → Keep Render awake → Run workflow**. HTTP-fel, felaktigt JSON eller
+ett svar utan `ok: true` ger upp till tre försök och därefter en misslyckad
+körning. Kontrollera senaste körningen under Actions.
+
+Detta är en best-effort-lösning: GitHub kan försena eller hoppa över schemalagda
+körningar. I publika repon inaktiveras schemalagda workflows efter 60 dagar utan
+repoaktivitet; de kan behöva aktiveras igen under Actions. Workflowen gör inga
+automatiska commits för att kringgå detta. Render kan fortfarande starta om
+tjänsten och dess gratiskvoter gäller även när servern hålls vaken.
+
+Stäng av anropen via **Actions → Keep Render awake → Disable workflow**.
+Se [GitHubs schemadokumentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
